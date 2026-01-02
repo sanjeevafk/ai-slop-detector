@@ -2,9 +2,9 @@
   "manifest_version": 3,
   "name": "AI Content Detector",
   "version": "1.0",
-  "description": "Detects AI-generated text on webpages",
+  "description": "Detects AI-generated images and videos on webpages",
   "permissions": ["activeTab", "scripting"],
-  "host_permissions": ["http://localhost:8000/*"],
+  "host_permissions": ["http://localhost:8000/*", "<all_urls>"],
   "background": {
     "service_worker": "background.js"
   },
@@ -14,7 +14,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["content.js"],
+      "run_at": "document_idle"
     }
   ]
 }
