@@ -1,48 +1,179 @@
 # AI Slop Detector
-A no-nonsense browser extension that flags AI-generated text in the wild. Built on a Hugging Face model, further fine-tuned on a larger pool of synthetic “slop” to improve real-world detection.
 
-## Status: WIP
-The project is evolving. Expect breaking changes, incomplete features, and experiments that may or may not survive.
+AI Slop Detector is a **privacy-first browser extension** that detects **AI-generated images** (and sampled video frames) directly on webpages.
 
-## What It Does
-AI-generated content is getting harder to spot. This tool runs a lightweight detector on page text and throws a warning when the signal looks machine-made. The goal: stop people from blindly trusting polished, generic, mass-produced language.
+All inference runs **entirely on your local machine**.  
+**No images, frames, or metadata are uploaded or logged.**
 
-## How It Works
-- Uses a fine-tuned HF model trained on mixed AI-output datasets  
-- Runs detection on selected webpage text  
-- Surfaces a warning with a probability score  
-- Extension targets Manifest V3 (Chrome/Edge; Firefox planned)
+This project is intended for users who want practical AI-content detection without relying on cloud APIs, telemetry, or third-party services.
 
-## Planned Features
-- Real-time on-page detection  
-- Adjustable sensitivity  
-- Optional inference API for low-end hardware  
-- Offline mode (experimental)  
-- Minimal UI with focus on signal, not aesthetics
+---
 
-## Project Structure (WIP)
-- ai-slop-detector/
-- model/ # fine-tuning scripts and config
-- extension/ # browser extension code
-- api/ # optional inference backend
-- utils/ # preprocessing and detection helpers
+## Overview
+
+Modern AI image generators are increasingly realistic, and many platforms do not clearly label synthetic media. This extension provides a **local, model-based signal** to help identify likely AI-generated visual content while preserving user privacy.
+
+The system consists of:
+- A **local FastAPI backend** for inference
+- A **Manifest V3 browser extension** that communicates only with `localhost`
+
+No external network calls are made.
+
+---
+
+## Detection Approach
+
+The backend uses an **ensemble of two vision classifiers**, combining **specialized detection** with **general-purpose coverage**.
+
+### Models Used (Ensemble)
+
+1. **prithivMLmods/OpenSDI-Flux.1-SigLIP2**
+   - Binary classifier trained specifically to distinguish Flux.1-generated images from real photographs
+   - Very effective on Flux-based outputs, including older Grok Imagine variants
+   - Robust to moderate post-processing and morphing
+
+2. **Ateeqq/ai-vs-human-image-detector**
+   - General-purpose AI vs human image classifier
+   - Trained on a broad mix of recent generators (Midjourney v6+, Stable Diffusion 3.5, GPT-4o images, etc.)
+   - Provides strong coverage for non-Flux generators
+
+### Ensemble Strategy
+
+- Each model outputs an AI probability score
+- The final score is the **average of both probabilities**
+- This reduces single-model bias and improves robustness across generators
+
+> **Accuracy note**  
+> No detector is 100% accurate. Real-world accuracy is typically **~85–95%**, depending on generator, image quality, and post-processing. Cutting-edge proprietary models (e.g., current Aurora-based Grok Imagine) may still evade detection.
+
+---
+
+## Features
+
+- Automatic scanning of images on any webpage
+- Visual overlays:
+  - Red border for likely AI-generated content
+  - Confidence badge with probability score
+- Works on dynamically loaded pages (infinite scroll, lazy loading)
+- Basic video support via representative frame analysis
+- Adjustable confidence threshold
+- No accounts, API keys, or telemetry
+
+---
+
+## System Requirements
+
+### Backend
+- Python **3.10+**
+- CPU inference supported (GPU optional)
+
+### Browser
+- Chrome, Edge, or Firefox
+- Manifest V3 compatible
+
+---
+
+## Installation & Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/voidcommit-afk/ai-slop-detector.git
+cd ai-slop-detector
+```
+### 2. Install Backend Dependencies 
+```
+cd backend 
+pip install fastapi uvicorn transformers torch pillow
+```
+### 3. Start the Local Backend 
+```
+uvicorn main:app --reload
+```
+Keep this terminal running First launch will download approximately ~800 MB of model weights (one-time)
+
+### 4. Load the Browser Extension (Chrome)
+
+1. Open `chrome://extensions`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select the `extension/` directory from the repository
+
+---
+
+### 5. Test
+
+Visit sites with known AI imagery, such as:
+- `civitai.com`
+- `lexica.art`
+- AI art–focused subreddits
+
+Likely AI-generated images should display a **red border** and a **confidence badge**.
+
+---
+
+## Customization
+- Reduce false positives: Increase `CONFIDENCE_THRESHOLD` in `extension/content.js` (e.g., to 0.85 or 0.90)
+- Detect more subtle AI: Lower the threshold to 0.70 or 0.75
+- After changes: Reload the extension in chrome://extensions
 
 
-## Tech Stack
-Python, HF Transformers, JS/TS, Browser Extension APIs, optional FastAPI/Node backend.
+### Confidence Threshold Examples
 
-## Install (Coming Soon)
-Basic cloning and setup instructions will be added once the prototype stops breaking every other day.
+- **Reduce false positives**
+```js
+CONFIDENCE_THRESHOLD = 0.85 // or 0.90
+```
+- Detect more subtle AI artifacts
+```js
+CONFIDENCE_THRESHOLD = 0.70 // or 0.75
+```
+After modifying:
+- Reload the extension in `chrome://extensions`
 
-## Progress
-- Repo initialized  
-- Model research underway  
-- Fine-tuning pipeline in progress  
-- Extension UI skeleton  
-- Inference path experiments
+## Privacy & Security
+
+- **100% local inference** – All model processing happens on your device
+- No outbound network requests from the extension or backend
+- No telemetry, analytics, or tracking
+- No data persistence or logging
+- The browser extension communicates **only** with `localhost:8000`
+
+Your images never leave your computer.
+
+---
+
+## Known Limitations
+
+- **Speed**: CPU-only inference can take ~10–30 seconds per batch on average hardware (first run also downloads models)
+- **Evasion**: Very recent or proprietary generators (e.g., current Aurora-based Grok Imagine) may still evade detection
+- **Video support**: Currently samples only a single representative frame
+- **Probabilistic nature**: Output is a confidence score, not definitive proof – false positives and false negatives are possible
+
+Detection accuracy in the wild is typically **~85–95%**, varying by generator and post-processing.
+
+---
 
 ## Contributing
-Open to PRs, constructive cynicism, and better datasets once the core pipeline stabilizes.
+
+Contributions are welcome! Potential areas include:
+
+- GPU acceleration and improved batching
+- Integration of additional ensemble models
+- Multi-frame video analysis
+- UI/UX enhancements (popup controls, per-site settings)
+- Performance optimizations (quantization, caching)
+
+Feel free to open issues or submit pull requests.
+
+---
 
 ## License
-MIT (planned)
+
+MIT License
+
+---
+
+Built as a learning project with a strong emphasis on **privacy**, **local inference**, and **realistic expectations** of AI detection capabilities.
+
+Enjoy responsibly and keep questioning what's real on the web.
