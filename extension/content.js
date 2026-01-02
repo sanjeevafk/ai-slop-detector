@@ -1,72 +1,106 @@
-console.log("AI Detector: content.js running");
+// content.js - Full Updated Version for Binary Flux Detector Model
+console.log("👁️ AI Detector: Content script loaded");
 
-// BACKEND URL
-const API_URL = "http://localhost:8000/detect-text";
+const CONFIG = {
+  MIN_IMAGE_SIZE: 60,           // Lowered for thumbnails
+  CONFIDENCE_THRESHOLD: 0.65,   // Adjust lower (e.g., 0.5) if missing detections, higher (0.8) for fewer false positives
+  MAX_ITEMS_TO_SCAN: 40
+};
 
-async function detectAI(text) {
-    return new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-            {
-                type: "DETECT_TEXT",
-                text,
-                url: "http://localhost:8000/detect-text"
-            },
-            (response) => {
-                resolve(response?.result || response);
-            }
-        );
-    });
+let processedImages = new Set();
+
+function scanPageContent() {
+  const images = Array.from(document.querySelectorAll("img"));
+  let scanCount = 0;
+
+  for (const img of images) {
+    if (scanCount >= CONFIG.MAX_ITEMS_TO_SCAN) break;
+    if (img.width < CONFIG.MIN_IMAGE_SIZE || img.height < CONFIG.MIN_IMAGE_SIZE) continue;
+    if (processedImages.has(img.src)) continue;
+
+    processedImages.add(img.src);
+    scanCount++;
+    processImageElement(img);
+  }
 }
 
+async function processImageElement(img) {
+  console.log("🔍 Checking image:", img.src);
 
-
-function showBadge(el, prob) {
-    const badge = document.createElement("div");
-    badge.innerText = `⚠️ AI (${(prob * 100).toFixed(1)}%)`;
-
-    badge.style.cssText = `
-        position: absolute;
-        top: 0;
-        right: 0;
-        background: yellow;
-        padding: 4px 6px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: bold;
-        z-index: 9999999;
-    `;
-
-    el.style.position = "relative";
-    el.appendChild(badge);
-}
-
-async function scanPage() {
-    console.log("AI Detector: scanPage() STARTED");
-
-    const paragraphs = Array.from(document.querySelectorAll("p"));
-    console.log("Found paragraphs:", paragraphs.length);
-
-    for (const p of paragraphs) {
-        const text = p.innerText.trim();
-        if (text.length < 80) continue;
-
-        console.log("Checking paragraph:", text.slice(0, 60));
-
-        const result = await detectAI(text);
-        console.log("API result:", result);
-
-        let prob = 0;
-
-        if (Array.isArray(result) && result[0]?.score !== undefined) {
-            prob = result[0].score;
-        } else if (result.ai_probability !== undefined) {
-            prob = result.ai_probability;
-        }
-
-        if (prob > 0.75) {
-            showBadge(p, prob);
-        }
+  chrome.runtime.sendMessage(
+    { action: "DETECT_IMAGE_URL", payload: img.src },
+    (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Runtime error:", chrome.runtime.lastError.message);
+        return;
+      }
+      if (response && response.success) {
+        console.log("✅ Detection result:", response.data);
+        handleModelResponse(response.data, img);
+      } else {
+        console.warn("❌ Detection failed for:", img.src, response?.error);
+      }
     }
+  );
 }
 
-scanPage(); 
+function handleModelResponse(data, element) {
+  if (!Array.isArray(data) || data.length === 0) return;
+
+  const scores = {};
+  data.forEach(item => { scores[item.label] = item.score; });
+
+  // Specific to prithivMLmods/OpenSDI-Flux.1-SigLIP2: Labels are "Flux.1_Generated" and "Real_Image"
+  const aiScore = scores["AI-Generated"] || scores["ai"] || scores["Flux.1_Generated"] || 0;
+  let confidence = 0;
+  let message = "";
+
+  if (aiScore > CONFIG.CONFIDENCE_THRESHOLD) {
+    confidence = aiScore;
+    message = "Flux-Generated (Likely AI)";
+  }
+
+  if (message) {
+    console.log(`🚩 Flagging as ${message}: ${Math.round(confidence * 100)}%`);
+    flagContent(element, confidence, message);
+  }
+}
+
+function flagContent(element, confidence, message) {
+  element.style.border = "5px solid red";
+  element.style.boxSizing = "border-box";
+
+  const badge = document.createElement("div");
+  badge.textContent = `🤖 ${message} (${Math.round(confidence * 100)}%)`;
+  badge.style.position = "absolute";
+  badge.style.top = "4px";
+  badge.style.left = "4px";
+  badge.style.background = "rgba(255,0,0,0.9)";
+  badge.style.color = "white";
+  badge.style.padding = "4px 8px";
+  badge.style.fontSize = "12px";
+  badge.style.fontWeight = "bold";
+  badge.style.zIndex = "999999";
+  badge.style.borderRadius = "4px";
+  badge.style.pointerEvents = "none";
+
+  if (element.parentElement.style.position === "") {
+    element.parentElement.style.position = "relative";
+  }
+  element.parentElement.appendChild(badge);
+}
+
+// Initial scan + watch for dynamic content
+window.addEventListener("load", () => {
+  setTimeout(scanPageContent, 1500);
+});
+
+const observer = new MutationObserver(() => {
+  scanPageContent();
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+  attributes: false
+});
