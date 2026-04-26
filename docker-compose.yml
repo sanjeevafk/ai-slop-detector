@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_DEVICE: cpu
+      LOG_LEVEL: INFO
+      CORS_ALLOW_ORIGINS: "*"
+    volumes:
+      - ./backend:/app/backend
+      - model-cache:/root/.cache/huggingface
+
+volumes:
+  model-cache:
