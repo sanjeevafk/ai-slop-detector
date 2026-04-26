@@ -2,14 +2,222 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
     <style>
-      body { font-family: Arial, sans-serif; padding: 12px; width: 200px; }
-      h2 { margin: 0 0 6px; font-size: 18px; }
-      p { margin: 0; font-size: 14px; color: #444; }
+      :root {
+        color-scheme: light;
+        --ink: #13111a;
+        --muted: #5b5a64;
+        --mist: #f4f1ec;
+        --base: #fbf8f3;
+        --accent: #d66a2f;
+        --accent-2: #0b6b6b;
+        --shadow: 0 12px 30px rgba(19, 17, 26, 0.12);
+        --radius: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        width: 320px;
+        background: radial-gradient(circle at top, #fff7ea 0%, var(--base) 45%, #f2efe8 100%);
+        color: var(--ink);
+        font-family: "Trebuchet MS", "Lucida Sans", "Tahoma", sans-serif;
+      }
+
+      .wrap {
+        padding: 16px;
+      }
+
+      .card {
+        background: var(--mist);
+        border-radius: var(--radius);
+        padding: 16px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card::after {
+        content: "";
+        position: absolute;
+        inset: auto -60px -80px auto;
+        width: 140px;
+        height: 140px;
+        background: linear-gradient(140deg, rgba(214, 106, 47, 0.4), rgba(11, 107, 107, 0.2));
+        border-radius: 50%;
+        filter: blur(2px);
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-family: "Palatino Linotype", "Palatino", "Georgia", serif;
+        font-size: 20px;
+        letter-spacing: 0.4px;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .section {
+        margin-top: 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(19, 17, 26, 0.12);
+        font-size: 12px;
+        background: #fff;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .chip {
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: rgba(11, 107, 107, 0.12);
+        color: var(--accent-2);
+        font-weight: 600;
+      }
+
+      .slider {
+        width: 100%;
+      }
+
+      .buttons {
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        flex: 1;
+        border: none;
+        border-radius: 12px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .ghost {
+        background: transparent;
+        color: var(--accent-2);
+        border: 1px solid rgba(11, 107, 107, 0.3);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .stat {
+        background: #fff;
+        padding: 10px;
+        border-radius: 12px;
+        text-align: center;
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 16px;
+      }
+
+      .footer {
+        margin-top: 12px;
+        font-size: 10px;
+        color: var(--muted);
+      }
     </style>
   </head>
   <body>
-    <h2>AI Detector</h2>
-    <p>Auto-scanning the page…<br><small>Check console for logs</small></p>
+    <div class="wrap">
+      <div class="card">
+        <h1>AI Slop Detector</h1>
+        <p>Local inference with a two-model ensemble.</p>
+
+        <div class="section">
+          <div class="row">
+            <label for="backendUrl">Backend URL</label>
+            <span id="backendState" class="chip">offline</span>
+          </div>
+          <input id="backendUrl" type="text" placeholder="http://localhost:8000" />
+
+          <label for="threshold">Confidence threshold</label>
+          <div class="row">
+            <input id="threshold" class="slider" type="range" min="0.3" max="0.95" step="0.01" />
+            <span id="thresholdValue" class="chip">0.65</span>
+          </div>
+
+          <div class="row">
+            <div>
+              <label for="maxItems">Max images</label>
+              <input id="maxItems" type="number" min="5" max="200" />
+            </div>
+            <div>
+              <label for="minSize">Min size</label>
+              <input id="minSize" type="number" min="24" max="256" />
+            </div>
+          </div>
+
+          <div class="buttons">
+            <button id="saveBtn" class="primary">Save</button>
+            <button id="resetBtn" class="ghost">Reset stats</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="stats">
+          <div class="stat">
+            <strong id="scanCount">0</strong>
+            <span>Scanned</span>
+          </div>
+          <div class="stat">
+            <strong id="flagCount">0</strong>
+            <span>Flagged</span>
+          </div>
+          <div class="stat">
+            <strong id="errorCount">0</strong>
+            <span>Errors</span>
+          </div>
+        </div>
+        <div class="footer">Status updates refresh every 10s.</div>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
   </body>
 </html>
