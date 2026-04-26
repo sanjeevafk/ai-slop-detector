@@ -3,7 +3,7 @@
   "name": "AI Content Detector",
   "version": "1.0",
   "description": "Detects AI-generated images and videos on webpages",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["http://localhost:8000/*", "<all_urls>"],
   "background": {
     "service_worker": "background.js"
