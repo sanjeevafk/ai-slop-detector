@@ -1,5 +1,7 @@
 # main.py - Ensembled Detector (Flux + General AI Detector)
+import logging
 import os
+import time
 
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,11 +10,20 @@ from PIL import Image, UnidentifiedImageError
 import io
 import torch
 
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="[%(asctime)s] %(levelname)s %(message)s",
+)
+logger = logging.getLogger("ai-slop-detector")
+
 app = FastAPI()
+
+allowed_origins = os.getenv("CORS_ALLOW_ORIGINS", "*")
+allow_list = [origin.strip() for origin in allowed_origins.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,10 +82,11 @@ async def detect_content(file: UploadFile = File(...)):
             detail="Only image uploads are supported.",
         )
 
-    print(f"Analyzing: {file.filename} ({file.content_type})...")
+    logger.info("Analyzing %s (%s)", file.filename, file.content_type)
 
     try:
         load_models()
+        start_time = time.time()
         file_bytes = await file.read()
         image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
         
@@ -104,10 +116,13 @@ async def detect_content(file: UploadFile = File(...)):
         ]
         result.sort(key=lambda x: x["score"], reverse=True)
         
-        print(
-            "Ensemble Result: AI={:.4f} (Flux={:.4f}, General={:.4f})".format(
-                ensemble_ai_score, flux_ai_score, general_ai_score
-            )
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(
+            "Ensemble AI=%.4f (Flux=%.4f, General=%.4f) duration=%sms",
+            ensemble_ai_score,
+            flux_ai_score,
+            general_ai_score,
+            duration_ms,
         )
         return result
     except UnidentifiedImageError:
@@ -117,7 +132,7 @@ async def detect_content(file: UploadFile = File(...)):
         )
     except Exception as e:
         error_detail = str(e)
-        print(f"Error: {error_detail}")
+        logger.exception("Processing error: %s", error_detail)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Processing error.",
