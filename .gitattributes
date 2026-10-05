@@ -1,0 +1,8 @@
+# Make GitHub language stats count only Python
+*.js linguist-vendored
+*.html linguist-vendored
+*.css linguist-vendored
+Dockerfile linguist-vendored
+*.yml linguist-vendored
+*.md linguist-documentation
+extension/** linguist-vendored
